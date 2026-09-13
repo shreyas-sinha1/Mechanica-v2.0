@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D Pulley System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1f2e; }
+    canvas { display: block; position: absolute; top: 0; left: 0; }
+
+    /* ── HUD ──────────────────────────────────────────────────────────── */
+    #ui {
+      position: absolute;
+      top: 50%;
+      left: 24px;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: stretch;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .panel {
+      background: rgba(12, 18, 38, 0.78);
+      backdrop-filter: blur(22px);
+      -webkit-backdrop-filter: blur(22px);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 20px;
+      padding: 18px 22px;
+      font-family: 'Inter', system-ui, sans-serif;
+      color: #e2e8f0;
+      pointer-events: all;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+    }
+
+    /* Mass side panels */
+    .side-panel { min-width: 130px; }
+    .panel-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      text-align: center;
+      margin-bottom: 10px;
+      opacity: 0.65;
+    }
+    .mass-display {
+      font-size: 34px;
+      font-weight: 700;
+      text-align: center;
+      line-height: 1;
+      margin-bottom: 14px;
+      font-variant-numeric: tabular-nums;
+    }
+    .mass-display .unit {
+      font-size: 13px;
+      font-weight: 400;
+      opacity: 0.38;
+      margin-left: 2px;
+    }
+    .btn-row { display: flex; gap: 8px; justify-content: center; }
+    .ctrl-btn {
+      width: 46px; height: 46px;
+      border-radius: 13px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.07);
+      color: #e2e8f0;
+      font-size: 24px;
+      font-weight: 300;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.14s, border-color 0.14s, transform 0.1s;
+      line-height: 1;
+    }
+    .ctrl-btn:hover:not(:disabled) {
+      background: rgba(255,255,255,0.16);
+      border-color: rgba(255,255,255,0.25);
+    }
+    .ctrl-btn:active:not(:disabled) { transform: scale(0.91); }
+    .ctrl-btn:disabled { opacity: 0.2; cursor: not-allowed; }
+
+    /* Center panel */
+    #center-panel { min-width: 210px; }
+    .stat-block { text-align: center; margin-bottom: 8px; }
+    .stat-label {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+      opacity: 0.38;
+      margin-bottom: 2px;
+    }
+    .stat-val {
+      font-size: 26px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.1;
+    }
+    .stat-unit { font-size: 13px; font-weight: 400; opacity: 0.38; }
+    .t-color  { color: #67e8f9; }
+    .a-color  { color: #c4b5fd; }
+    .divider  { border: none; border-top: 1px solid rgba(255,255,255,0.07); margin: 12px 0; }
+
+    #badge {
+      text-align: center;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 5px 14px;
+      border-radius: 30px;
+      margin-bottom: 10px;
+      display: none;
+    }
+    .badge-eq    { background: rgba(52,211,153,0.14); color:#34d399; border:1px solid rgba(52,211,153,0.28); }
+    .badge-limit { background: rgba(251,113,133,0.14); color:#fb7185; border:1px solid rgba(251,113,133,0.28); }
+
+    .action-btn {
+      width: 100%;
+      padding: 11px;
+      border-radius: 13px;
+      border: none;
+      font-family: 'Inter', system-ui;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      transition: opacity 0.18s, transform 0.1s;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    .action-btn:hover  { opacity: 0.84; transform: scale(1.02); }
+    .action-btn:active { transform: scale(0.97); }
+    #release-btn { background: linear-gradient(135deg,#6366f1,#8b5cf6); }
+
+    #reset-btn {
+      width: 100%; padding: 9px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.13);
+      background: rgba(255,255,255,0.05);
+      color: rgba(255,255,255,0.6);
+      font-family: 'Inter', system-ui;
+      font-size: 13px; font-weight: 500;
+      cursor: pointer;
+      transition: background 0.14s;
+    }
+    #reset-btn:hover { background: rgba(255,255,255,0.11); }
+
+    .hint {
+      text-align: center;
+      font-size: 10px;
+      color: rgba(255,255,255,0.22);
+      margin-top: 10px;
+      letter-spacing: 0.04em;
+    }
+
+    /* Color accents */
+    .left-c  { color: #60a5fa; }
+    .right-c { color: #fb923c; }
+  </style>
+</head>
+<body>
+
+<!-- ── HUD ──────────────────────────────────────────────────────────────── -->
+<div id="ui">
+
+  <!-- Left mass -->
+  <div class="panel side-panel">
+    <div class="panel-label left-c">Left Mass</div>
+    <div class="mass-display left-c">
+      <span id="lm-val">0</span><span class="unit">kg</span>
+    </div>
+    <div class="btn-row">
+      <button class="ctrl-btn" id="btn-lm-dec" onclick="adjMass('L',-1)">−</button>
+      <button class="ctrl-btn" id="btn-lm-inc" onclick="adjMass('L',+1)">+</button>
+    </div>
+  </div>
+
+  <!-- Center physics -->
+  <div class="panel" id="center-panel">
+    <div id="badge"></div>
+    <div class="stat-block">
+      <div class="stat-label">Tension</div>
+      <div class="stat-val t-color"><span id="tv">0.0</span><span class="stat-unit"> N</span></div>
+    </div>
+    <div class="stat-block">
+      <div class="stat-label">Acceleration</div>
+      <div class="stat-val a-color"><span id="av">0.00</span><span class="stat-unit"> m/s²</span></div>
+    </div>
+    <hr class="divider">
+    <button class="action-btn" id="release-btn" onclick="doRelease()">▶ Release</button>
+    <button id="reset-btn" onclick="doReset()">↺ Reset</button>
+    <div class="hint">Drag to rotate · Scroll to zoom</div>
+  </div>
+
+  <!-- Right mass -->
+  <div class="panel side-panel">
+    <div class="panel-label right-c">Right Mass</div>
+    <div class="mass-display right-c">
+      <span id="rm-val">0</span><span class="unit">kg</span>
+    </div>
+    <div class="btn-row">
+      <button class="ctrl-btn" id="btn-rm-dec" onclick="adjMass('R',-1)">−</button>
+      <button class="ctrl-btn" id="btn-rm-inc" onclick="adjMass('R',+1)">+</button>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.167.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.167.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ══════════════════════════════════════════════════════════════════════════
+//  SCENE / CAMERA / RENDERER
+// ══════════════════════════════════════════════════════════════════════════
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a1f2e);
+
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.01, 200);
+camera.position.set(5, 2, 10);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 3;
+controls.maxDistance = 30;
+controls.target.set(0, -1.5, 0);
+controls.update();
+
+// ══════════════════════════════════════════════════════════════════════════
+//  LIGHTS
+// ══════════════════════════════════════════════════════════════════════════
+scene.add(new THREE.AmbientLight(0x8899bb, 0.65));
+scene.add(new THREE.HemisphereLight(0x445577, 0x112233, 0.85));
+
+const key = new THREE.DirectionalLight(0xfff3e0, 3.5);
+key.position.set(6, 12, 8);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.left = -14; key.shadow.camera.right  =  14;
+key.shadow.camera.top  =  14; key.shadow.camera.bottom = -14;
+key.shadow.camera.far  = 60;
+key.shadow.bias = -0.0005;
+scene.add(key);
+
+const fill = new THREE.DirectionalLight(0x3355aa, 1.1);
+fill.position.set(-8, 4, -4);
+scene.add(fill);
+
+const rim = new THREE.PointLight(0x99ccff, 1.8, 28);
+rim.position.set(-4, 9, -6);
+scene.add(rim);
+
+const under = new THREE.PointLight(0x334466, 1.2, 22);
+under.position.set(0, -6, 3);
+scene.add(under);
+
+// ══════════════════════════════════════════════════════════════════════════
+//  MATERIALS
+// ══════════════════════════════════════════════════════════════════════════
+function M(color, metal, rough) {
+  return new THREE.MeshStandardMaterial({ color, metalness: metal, roughness: rough });
+}
+const MAT = {
+  steel:    M(0x8899aa, 0.95, 0.18),
+  steelDk:  M(0x445566, 0.90, 0.25),
+  iron:     M(0x556677, 0.85, 0.35),
+  brass:    M(0xc8963e, 0.92, 0.15),
+  rubber:   M(0x2a2520, 0.00, 0.88),
+  ropeA:    M(0xc8a96a, 0.00, 0.90),
+  ropeB:    M(0x9b7a4a, 0.00, 0.92),
+  massL:    M(0x1e3a8a, 0.72, 0.35),
+  massLEdge:M(0x3b82f6, 0.82, 0.22),
+  massR:    M(0x7c2d12, 0.72, 0.35),
+  massREdge:M(0xea580c, 0.82, 0.22),
+};
+
+// ══════════════════════════════════════════════════════════════════════════
+//  ROOT GROUP
+// ══════════════════════════════════════════════════════════════════════════
+const root = new THREE.Group();
+scene.add(root);
+
+// ══════════════════════════════════════════════════════════════════════════
+//  BRACKET  (identical to original)
+// ══════════════════════════════════════════════════════════════════════════
+const bracketGroup = new THREE.Group();
+root.add(bracketGroup);
+
+function makeSideArm(x) {
+  const arm = new THREE.Group();
+  const col = new THREE.Mesh(new THREE.BoxGeometry(0.22, 3.2, 0.22), MAT.iron);
+  col.position.set(x, 0.4, 0); col.castShadow = true; col.receiveShadow = true;
+  arm.add(col);
+
+  const gussShape = new THREE.Shape();
+  gussShape.moveTo(0, 0); gussShape.lineTo(0.55, 0); gussShape.lineTo(0, 0.55); gussShape.closePath();
+  const guss = new THREE.Mesh(
+    new THREE.ExtrudeGeometry(gussShape, { depth: 0.08, bevelEnabled: false }), MAT.iron);
+  guss.position.set(x - 0.11 * Math.sign(x) - 0.04, -0.97, -0.04);
+  guss.rotation.y = x < 0 ? Math.PI : 0;
+  guss.castShadow = true;
+  arm.add(guss);
+  return arm;
+}
+bracketGroup.add(makeSideArm(-1.15));
+bracketGroup.add(makeSideArm( 1.15));
+
+const topBar = new THREE.Mesh(new THREE.BoxGeometry(2.52, 0.28, 0.28), MAT.iron);
+topBar.position.set(0, 2.06, 0); topBar.castShadow = true; bracketGroup.add(topBar);
+
+{ // Hook
+  const hs = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.7, 16), MAT.steel);
+  hs.position.set(0, 2.6, 0); hs.castShadow = true; bracketGroup.add(hs);
+  const he = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.055, 16, 32), MAT.steel);
+  he.position.set(0, 3.02, 0); he.rotation.y = Math.PI / 2; he.castShadow = true; bracketGroup.add(he);
+  const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.12, 6), MAT.brass);
+  collar.position.set(0, 2.28, 0); bracketGroup.add(collar);
+}
+
+const flange = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.14, 0.6), MAT.iron);
+flange.position.set(0, -1.07, 0); flange.castShadow = true; flange.receiveShadow = true;
+bracketGroup.add(flange);
+for (const bx of [-1.1, 1.1]) for (const bz of [-0.18, 0.18]) {
+  const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.1, 6), MAT.steel);
+  bolt.position.set(bx, -1.01, bz); bracketGroup.add(bolt);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  WHEEL GROUP  (identical to original)
+// ══════════════════════════════════════════════════════════════════════════
+const wheelGroup = new THREE.Group();
+root.add(wheelGroup);
+
+const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 2.8, 24), MAT.steel);
+axle.rotation.z = Math.PI / 2; axle.castShadow = true; wheelGroup.add(axle);
+
+for (const sx of [-1.4, 1.4]) {
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.12, 6), MAT.brass);
+  cap.rotation.z = Math.PI / 2; cap.position.set(sx, 0, 0); wheelGroup.add(cap);
+  const washer = new THREE.Mesh(new THREE.TorusGeometry(0.115, 0.03, 8, 24), MAT.steelDk);
+  washer.rotation.y = Math.PI / 2; washer.position.set(sx * 0.88, 0, 0); wheelGroup.add(washer);
+}
+
+const WHEEL_R = 1.1, WHEEL_W = 0.38;
+const GROOVE_R = WHEEL_R * 0.83;   // radius of rope groove
+
+const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, WHEEL_W + 0.06, 32), MAT.iron);
+hub.rotation.z = Math.PI / 2; hub.castShadow = true; wheelGroup.add(hub);
+const hubRing = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.04, 12, 32), MAT.steelDk);
+hubRing.rotation.y = Math.PI / 2; wheelGroup.add(hubRing);
+
+for (let i = 0; i < 6; i++) {
+  const angle = (i / 6) * Math.PI * 2;
+  const spokeLen = WHEEL_R - 0.26;
+  const spoke = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.06, spokeLen, 10), MAT.iron);
+  spoke.rotation.z = Math.PI / 2;
+  spoke.position.set(0, Math.sin(angle) * (0.26 + spokeLen / 2), Math.cos(angle) * (0.26 + spokeLen / 2));
+  spoke.rotation.x = -angle;
+  spoke.castShadow = true;
+  wheelGroup.add(spoke);
+}
+
+{
+  const pts = [
+    new THREE.Vector2(WHEEL_R, -WHEEL_W/2 - 0.04),
+    new THREE.Vector2(WHEEL_R, -WHEEL_W/2 + 0.04),
+    new THREE.Vector2(GROOVE_R, -WHEEL_W * 0.08),
+    new THREE.Vector2(GROOVE_R,  WHEEL_W * 0.08),
+    new THREE.Vector2(WHEEL_R,  WHEEL_W/2 - 0.04),
+    new THREE.Vector2(WHEEL_R,  WHEEL_W/2 + 0.04),
+  ];
+  const rim = new THREE.Mesh(new THREE.LatheGeometry(pts, 64), MAT.iron);
+  rim.rotation.z = Math.PI / 2; rim.castShadow = true; rim.receiveShadow = true; wheelGroup.add(rim);
+  const grv = new THREE.Mesh(new THREE.LatheGeometry([
+    new THREE.Vector2(GROOVE_R, -WHEEL_W * 0.08),
+    new THREE.Vector2(GROOVE_R,  WHEEL_W * 0.08),
+  ], 64), MAT.rubber);
+  grv.rotation.z = Math.PI / 2; wheelGroup.add(grv);
+}
+
+for (const s of [-1, 1]) {
+  const disc = new THREE.Mesh(new THREE.RingGeometry(0.24, WHEEL_R - 0.02, 64), MAT.iron);
+  disc.rotation.y = Math.PI / 2;
+  disc.position.set(s * (WHEEL_W / 2 + 0.01), 0, 0);
+  disc.castShadow = true; wheelGroup.add(disc);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  ROPE  — static arc over the top + two dynamic hanging cylinders
+// ══════════════════════════════════════════════════════════════════════════
+const ROPE_R = 0.045;
+const INIT_HANG = 2.6;       // default hanging length per side
+const MAX_TRAVEL = 2.15;     // stops when |pos| reaches this
+
+// Static upper-half arc (never changes)
+{
+  const arcPts = [];
+  for (let i = 0; i <= 36; i++) {
+    const a = Math.PI - (i / 36) * Math.PI;
+    arcPts.push(new THREE.Vector3(0, Math.sin(a) * GROOVE_R, Math.cos(a) * GROOVE_R));
+  }
+  const arcCurve = new THREE.CatmullRomCurve3(arcPts);
+  const arcMesh = new THREE.Mesh(
+    new THREE.TubeGeometry(arcCurve, 48, ROPE_R, 8, false), MAT.ropeA);
+  arcMesh.castShadow = true;
+  root.add(arcMesh);
+}
+
+// Dynamic hanging segments (unit-length cylinder scaled every frame)
+const leftRopeSeg  = new THREE.Mesh(new THREE.CylinderGeometry(ROPE_R, ROPE_R, 1, 8), MAT.ropeA);
+const rightRopeSeg = new THREE.Mesh(new THREE.CylinderGeometry(ROPE_R, ROPE_R, 1, 8), MAT.ropeB);
+leftRopeSeg.castShadow  = true;
+rightRopeSeg.castShadow = true;
+root.add(leftRopeSeg);
+root.add(rightRopeSeg);
+
+// ══════════════════════════════════════════════════════════════════════════
+//  MASS BLOCK GROUPS
+// ══════════════════════════════════════════════════════════════════════════
+const PLATE_H = 0.22, PLATE_W = 0.56, PLATE_D = 0.44;
+
+const massGrpL = new THREE.Group(); root.add(massGrpL);
+const massGrpR = new THREE.Group(); root.add(massGrpR);
+
+function buildMassBlocks(grp, n, bodyMat, edgeMat) {
+  while (grp.children.length) grp.remove(grp.children[0]);
+  grp.visible = n > 0;
+  if (n === 0) return;
+
+  const totalH = n * PLATE_H;
+
+  // Connection rod + ring (at top, connects to rope)
+  const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.3, 8), MAT.steelDk);
+  rod.position.y = totalH / 2 + 0.15;
+  grp.add(rod);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.072, 0.022, 8, 18), MAT.steel);
+  ring.position.y = totalH / 2 + 0.34;
+  grp.add(ring);
+
+  // Stacked plates
+  for (let i = 0; i < n; i++) {
+    const y = -totalH / 2 + i * PLATE_H + PLATE_H / 2;
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(PLATE_W, PLATE_H - 0.025, PLATE_D), bodyMat);
+    plate.position.y = y; plate.castShadow = true; plate.receiveShadow = true;
+    grp.add(plate);
+    // Highlight rim on each plate edge
+    const rim = new THREE.Mesh(new THREE.BoxGeometry(PLATE_W + 0.012, 0.024, PLATE_D + 0.012), edgeMat);
+    rim.position.y = y + PLATE_H / 2 - 0.013;
+    grp.add(rim);
+    // Central hole ring (decorative)
+    const hr = new THREE.Mesh(new THREE.TorusGeometry(0.068, 0.016, 8, 20), MAT.steelDk);
+    hr.position.y = y; hr.rotation.x = Math.PI / 2;
+    grp.add(hr);
+  }
+}
+
+// Top of mass group local origin = center of plates;
+// the ring is at y = +totalH/2 + 0.34 above center.
+function massRingY(m) { return m > 0 ? m * PLATE_H / 2 + 0.34 : 0; }
+
+// ══════════════════════════════════════════════════════════════════════════
+//  PHYSICS  (Atwood machine)
+// ══════════════════════════════════════════════════════════════════════════
+const GRAV_REAL = 9.8;    // for tension & accel display (N / m·s⁻²)
+const GRAV_VIS  = 3.8;    // scaled visual gravity (units/s² in scene space)
+
+const sim = { m1: 0, m2: 0, vel: 0, pos: 0, running: false, done: false };
+
+function visAccel()  { return sim.m1 + sim.m2 > 0 ? (sim.m1 - sim.m2) * GRAV_VIS  / (sim.m1 + sim.m2) : 0; }
+function realAccel() { return sim.m1 + sim.m2 > 0 ? Math.abs(sim.m1 - sim.m2) * GRAV_REAL / (sim.m1 + sim.m2) : 0; }
+function tension()   { return sim.m1 + sim.m2 > 0 ? 2 * sim.m1 * sim.m2 * GRAV_REAL / (sim.m1 + sim.m2) : 0; }
+
+// ══════════════════════════════════════════════════════════════════════════
+//  SCENE UPDATE  (rope lengths, mass positions, wheel rotation)
+// ══════════════════════════════════════════════════════════════════════════
+function updateScene() {
+  // sim.pos > 0 → left went DOWN, right went UP
+  const leftY  = -(INIT_HANG + sim.pos);   // center of left mass block group
+  const rightY = -(INIT_HANG - sim.pos);   // center of right mass block group
+
+  // Rope: runs from y=0 (groove exit) down to top of mass ring
+  const leftAttachY  = leftY  + massRingY(sim.m1);
+  const rightAttachY = rightY + massRingY(sim.m2);
+
+  const leftLen  = Math.max(0.02,  -leftAttachY);   // 0 - leftAttachY  (positive)
+  const rightLen = Math.max(0.02, -rightAttachY);
+
+  leftRopeSeg.scale.y  = leftLen;
+  rightRopeSeg.scale.y = rightLen;
+  leftRopeSeg.position.set(0,  leftAttachY / 2,  -GROOVE_R);
+  rightRopeSeg.position.set(0, rightAttachY / 2,  GROOVE_R);
+
+  // Mass groups (always show if m>0)
+  massGrpL.position.set(0, leftY,  -GROOVE_R);
+  massGrpR.position.set(0, rightY,  GROOVE_R);
+
+  // Wheel: as rope slides, wheel rotates
+  // leftY decreases (goes down) → rope moves left-to-right → wheel rotates +X
+  wheelGroup.rotation.x = sim.pos / GROOVE_R;
+}
+updateScene();
+
+// ══════════════════════════════════════════════════════════════════════════
+//  UI LOGIC  (global functions called by onclick)
+// ══════════════════════════════════════════════════════════════════════════
+function refreshUI() {
+  document.getElementById('lm-val').textContent = sim.m1;
+  document.getElementById('rm-val').textContent = sim.m2;
+  document.getElementById('tv').textContent = tension().toFixed(1);
+  document.getElementById('av').textContent = realAccel().toFixed(2);
+
+  const locked = sim.running || sim.done;
+  document.getElementById('btn-lm-dec').disabled = locked || sim.m1 === 0;
+  document.getElementById('btn-lm-inc').disabled = locked || sim.m1 >= 10;
+  document.getElementById('btn-rm-dec').disabled = locked || sim.m2 === 0;
+  document.getElementById('btn-rm-inc').disabled = locked || sim.m2 >= 10;
+
+  const badge = document.getElementById('badge');
+  const rb    = document.getElementById('release-btn');
+
+  if (sim.done) {
+    badge.style.display = 'block';
+    const isBalanced = sim.m1 === sim.m2;
+    badge.className = isBalanced ? 'badge-eq' : 'badge-limit';
+    badge.textContent = isBalanced ? '⚖ Balanced — no motion' : '⚠ Heavier side bottomed out';
+    rb.textContent = '▶ Release';
+    rb.style.background = 'linear-gradient(135deg,#6366f1,#8b5cf6)';
+    rb.disabled = true;
+  } else if (sim.running) {
+    const balanced = sim.m1 === sim.m2 && sim.m1 > 0;
+    badge.style.display = balanced ? 'block' : 'none';
+    if (balanced) { badge.className = 'badge-eq'; badge.textContent = '⚖ Equal masses — balanced'; }
+    rb.textContent = '⏸ Pause';
+    rb.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)';
+    rb.disabled = false;
+  } else {
+    badge.style.display = 'none';
+    rb.textContent = '▶ Release';
+    rb.style.background = 'linear-gradient(135deg,#6366f1,#8b5cf6)';
+    rb.disabled = sim.m1 === 0 && sim.m2 === 0;
+  }
+}
+
+window.adjMass = function(side, delta) {
+  if (sim.running || sim.done) return;
+  if (side === 'L') {
+    sim.m1 = Math.max(0, Math.min(10, sim.m1 + delta));
+    buildMassBlocks(massGrpL, sim.m1, MAT.massL, MAT.massLEdge);
+  } else {
+    sim.m2 = Math.max(0, Math.min(10, sim.m2 + delta));
+    buildMassBlocks(massGrpR, sim.m2, MAT.massR, MAT.massREdge);
+  }
+  updateScene();
+  refreshUI();
+};
+
+window.doRelease = function() {
+  if (sim.done) return;
+  sim.running = !sim.running;
+  refreshUI();
+};
+
+window.doReset = function() {
+  sim.vel = 0; sim.pos = 0;
+  sim.running = false; sim.done = false;
+  updateScene();
+  refreshUI();
+};
+
+refreshUI();
+
+// ══════════════════════════════════════════════════════════════════════════
+//  SHADOW RECEIVER PLANE
+// ══════════════════════════════════════════════════════════════════════════
+const shadowPlane = new THREE.Mesh(
+  new THREE.PlaneGeometry(50, 50),
+  new THREE.ShadowMaterial({ opacity: 0.18 })
+);
+shadowPlane.rotation.x = -Math.PI / 2;
+shadowPlane.position.y = -5.5;
+shadowPlane.receiveShadow = true;
+scene.add(shadowPlane);
+
+// ══════════════════════════════════════════════════════════════════════════
+//  RENDER LOOP
+// ══════════════════════════════════════════════════════════════════════════
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+
+  if (sim.running && !sim.done) {
+    const a = visAccel();
+    sim.vel += a * dt;
+
+    // Damp equal-mass oscillation (floating-point noise)
+    if (sim.m1 === sim.m2) sim.vel *= 0.92;
+
+    sim.pos += sim.vel * dt;
+
+    if (Math.abs(sim.pos) >= MAX_TRAVEL) {
+      sim.pos    = Math.sign(sim.pos) * MAX_TRAVEL;
+      sim.vel    = 0;
+      sim.running = false;
+      sim.done    = true;
+      refreshUI();
+    }
+    updateScene();
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+// ══════════════════════════════════════════════════════════════════════════
+//  RESIZE
+// ══════════════════════════════════════════════════════════════════════════
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
